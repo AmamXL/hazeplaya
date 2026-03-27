@@ -808,8 +808,8 @@
       <button class="ctrl-btn" id="btn-next" title="Next">⏭</button>
       <div class="volume-group">
         <span class="vol-label">VOL</span>
-        <input type="range" id="volume" min="0" max="100" value="80">
-        <span id="vol-pct" style="color:#888;font-size:12px;min-width:32px;">80%</span>
+        <input type="range" id="volume" min="0" max="100" value="10">
+        <span id="vol-pct" style="color:#888;font-size:12px;min-width:32px;">10%</span>
       </div>
     </div>
 
@@ -1108,11 +1108,11 @@
         : serverPosition;
       if (isPlaying && tosAccepted) {
         player.loadVideoById({ videoId: newVideoId, startSeconds: seekTo });
-        player.setVolume(parseInt(document.getElementById('volume').value));
+        player.setVolume(applyVolumeCurve(parseInt(document.getElementById('volume').value)));
         player.playVideo();
       } else {
         player.cueVideoById({ videoId: newVideoId, startSeconds: seekTo });
-        player.setVolume(parseInt(document.getElementById('volume').value));
+        player.setVolume(applyVolumeCurve(parseInt(document.getElementById('volume').value)));
       }
       if (playbackCheckTimer) clearTimeout(playbackCheckTimer);
       if (isPlaying) {
@@ -1166,11 +1166,11 @@
               : serverPosition;
             if (isPlaying && tosAccepted) {
               player.loadVideoById({ videoId: song.id, startSeconds: seekTo });
-              player.setVolume(parseInt(document.getElementById('volume').value));
+              player.setVolume(applyVolumeCurve(parseInt(document.getElementById('volume').value)));
               player.playVideo();
             } else {
               player.cueVideoById({ videoId: song.id, startSeconds: seekTo });
-              player.setVolume(parseInt(document.getElementById('volume').value));
+              player.setVolume(applyVolumeCurve(parseInt(document.getElementById('volume').value)));
             }
           }
         },
@@ -1213,7 +1213,7 @@
       fallbackMode = true;
       fallbackActivating = false;
       audioEl.src = data.url;
-      audioEl.volume = parseInt(document.getElementById('volume').value) / 100;
+      audioEl.volume = applyVolumeCurve(parseInt(document.getElementById('volume').value)) / 100;
       const seekTo = Math.max(0, serverPosition + (Date.now() - serverPositionAt) / 1000);
       audioEl.addEventListener('loadedmetadata', () => { audioEl.currentTime = seekTo; }, { once: true });
       audioEl.play();
@@ -1352,11 +1352,20 @@
     socket.emit('admin_skip_prev');
   });
 
+  // Logarithmic volume curve for better perceived loudness control
+  function applyVolumeCurve(sliderValue) {
+    // Maps 0-100 slider to exponential curve (more room at low end, smoother at high end)
+    const normalized = sliderValue / 100;
+    const curved = Math.pow(normalized, 2.5); // Exponential curve
+    return curved * 100; // Return as percentage for YouTube API
+  }
+
   document.getElementById('volume').addEventListener('input', (e) => {
-    const vol = parseInt(e.target.value);
-    document.getElementById('vol-pct').textContent = vol + '%';
-    if (fallbackMode) audioEl.volume = vol / 100;
-    else if (playerReady) player.setVolume(vol);
+    const sliderVal = parseInt(e.target.value);
+    const curvedVol = applyVolumeCurve(sliderVal);
+    document.getElementById('vol-pct').textContent = sliderVal + '%';
+    if (fallbackMode) audioEl.volume = curvedVol / 100;
+    else if (playerReady) player.setVolume(curvedVol);
   });
 
   document.getElementById('progress-wrap').addEventListener('click', (e) => {
