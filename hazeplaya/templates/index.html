@@ -669,6 +669,7 @@
       <div class="volume-group">
         <span class="vol-label">VOL</span>
         <input type="range" id="volume" min="0" max="100" value="80">
+        <span id="vol-pct" style="color:#888;font-size:12px;min-width:32px;">80%</span>
       </div>
     </div>
 
@@ -1049,6 +1050,7 @@
 
   document.getElementById('volume').addEventListener('input', (e) => {
     const vol = parseInt(e.target.value);
+    document.getElementById('vol-pct').textContent = vol + '%';
     if (fallbackMode) audioEl.volume = vol / 100;
     else if (playerReady) player.setVolume(vol);
   });
