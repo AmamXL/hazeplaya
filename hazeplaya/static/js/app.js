@@ -20,11 +20,19 @@ const App = {
   document.getElementById("tos-accept").addEventListener("click", () => {
     App.tosAccepted = true;
     joinOverlay.style.display = "none";
-    if (App.currentIndex >= 0 && App.isPlaying) {
+    // Try to start playback if there's a song that should be playing
+    if (App.currentIndex >= 0 && App.queue[App.currentIndex] && App.isPlaying) {
+      const song = App.queue[App.currentIndex];
       const liveSeek = Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000);
-      if (fallbackMode) { audioEl.currentTime = liveSeek; audioEl.play(); }
-      else if (!playerReady) { activateFallback(App.queue[App.currentIndex]); }
-      else { player.seekTo(liveSeek, true); player.playVideo(); }
+      if (fallbackMode) { 
+        audioEl.currentTime = liveSeek; 
+        audioEl.play(); 
+      } else if (!playerReady) { 
+        // Player not ready yet, will be handled when it becomes ready
+      } else { 
+        player.seekTo(liveSeek, true); 
+        player.playVideo(); 
+      }
     }
   });
 
@@ -59,16 +67,26 @@ const App = {
       document.getElementById("now-placeholder").style.display = "none";
     }
 
-    if (playerReady && newVideoId && newVideoId !== lastVideoId) {
+    // Always try to load/sync the current song if we have one and ToS accepted
+    if (newVideoId && App.tosAccepted) {
       const seekTo = App.isPlaying
         ? Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000)
         : App.serverPosition;
-      loadSong(song, seekTo, App.isPlaying);
-    } else if (playerReady && newVideoId) {
-      const livePos = App.isPlaying
-        ? Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000)
-        : App.serverPosition;
-      syncPlayback(livePos);
+
+      if (fallbackMode || FORCE_FALLBACK) {
+        if (newVideoId !== lastVideoId) {
+          loadFallbackSong(song, seekTo, App.isPlaying);
+          lastVideoId = newVideoId;
+        } else {
+          syncPlayback(seekTo);
+        }
+      } else if (playerReady) {
+        if (newVideoId !== lastVideoId) {
+          loadSong(song, seekTo, App.isPlaying);
+        } else {
+          syncPlayback(seekTo);
+        }
+      }
     }
 
     document.getElementById("btn-play").textContent = App.isPlaying ? "\u23F8" : "\u25B6";
@@ -130,6 +148,12 @@ const App = {
     document.getElementById("autoplay-toggle").checked = data.enabled;
   });
 
+  // Quota updates via WebSocket (no polling needed)
+  App.socket.on("quota_update", (data) => {
+    document.getElementById("quota-used").textContent = data.used;
+    document.getElementById("quota-total").textContent = data.total;
+  });
+
   // Escape closes modals
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") document.getElementById("playlist-modal").style.display = "none";
@@ -140,15 +164,14 @@ const App = {
   initSearch(App.socket);
   renderPlaylists(App.socket);
 
-  // Quota
-  async function fetchQuota() {
+  // Test YouTube API (for debugging)
+  window.testYouTubeAPI = async function() {
     try {
-      const res = await fetch("quota");
+      const res = await fetch("test-api");
       const data = await res.json();
-      document.getElementById("quota-used").textContent = data.used;
-      document.getElementById("quota-total").textContent = data.total;
-    } catch {}
-  }
-  fetchQuota();
-  setInterval(fetchQuota, 30000);
+      alert(`YouTube API Test:\n${data.keys.filter(k => k.status === "OK").length}/${data.keys.length} keys working\nQuota: ${data.quota.used}/${data.quota.total}`);
+    } catch (e) {
+      alert("API test failed: " + e.message);
+    }
+  };
 })();

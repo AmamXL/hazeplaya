@@ -3,3 +3,4 @@ flask-socketio
 requests
 eventlet
 yt-dlp
+python-dotenv

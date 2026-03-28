@@ -5,26 +5,56 @@ let playbackCheckTimer = null;
 let autoplayCheckTimer = null;
 let progressInterval = null;
 
+// Set to true to force yt-dlp fallback mode (for testing visualizers)
+// Set to false to use YouTube IFrame player (default, faster)
+const FORCE_FALLBACK = true;
+
+// Expose for app.js
+window.FORCE_FALLBACK = FORCE_FALLBACK;
+
 // Fallback
 let fallbackMode = false;
 let fallbackActivating = false;
 const audioEl = document.createElement("audio");
+audioEl.id = "fallback-audio";
+audioEl.style.display = "none";
+document.body.appendChild(audioEl);
 
-function onYouTubeIframeAPIReady() {
+// Track when YouTube API starts loading
+const _ytApiLoadStart = Date.now();
+let _ytApiLoadTime = null;
+
+// YouTube API calls this function when ready - MUST be global!
+window.onYouTubeIframeAPIReady = function() {
+  _ytApiLoadTime = Date.now() - _ytApiLoadStart;
+  initPlayer();
+};
+
+function initPlayer() {
+  playerReady = true;
+  
+  // If FORCE_FALLBACK is enabled, skip IFrame and use direct stream
+  if (FORCE_FALLBACK) {
+    if (App.currentIndex >= 0 && App.queue[App.currentIndex] && App.tosAccepted) {
+      activateFallback(App.queue[App.currentIndex]);
+    }
+    return;
+  }
+  
   player = new YT.Player("yt-player", {
     width: 1,
     height: 1,
     playerVars: { autoplay: 0, controls: 0 },
     events: {
       onReady: () => {
-        playerReady = true;
-        if (App.currentIndex >= 0 && App.queue[App.currentIndex]) {
+        // Check if there's already a song that should be playing
+        if (App.currentIndex >= 0 && App.queue[App.currentIndex] && App.tosAccepted) {
           const song = App.queue[App.currentIndex];
           lastVideoId = song.id;
           const seekTo = App.isPlaying
             ? Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000)
             : App.serverPosition;
-          if (App.isPlaying && App.tosAccepted) {
+          if (App.isPlaying) {
             player.loadVideoById({ videoId: song.id, startSeconds: seekTo });
             player.setVolume(applyVolumeCurve(parseInt(document.getElementById("volume").value)));
             player.playVideo();
@@ -35,12 +65,19 @@ function onYouTubeIframeAPIReady() {
         }
       },
       onStateChange: onPlayerStateChange,
-      onError: () => {
+      onError: (e) => {
         activateFallback(App.queue[App.currentIndex]);
       },
     },
   });
 }
+
+// Fallback: manually trigger if YouTube API doesn't call the callback
+setTimeout(() => {
+  if (!playerReady && typeof window.onYouTubeIframeAPIReady === 'function') {
+    window.onYouTubeIframeAPIReady();
+  }
+}, 5000);
 
 function onPlayerStateChange(e) {
   if (e.data === YT.PlayerState.PLAYING) {
@@ -77,6 +114,7 @@ async function activateFallback(song) {
     }
     fallbackMode = true;
     fallbackActivating = false;
+    lastVideoId = song.id;
     audioEl.src = data.url;
     audioEl.volume = applyVolumeCurve(parseInt(document.getElementById("volume").value)) / 100;
     const seekTo = Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000);
@@ -98,8 +136,15 @@ function stopFallback() {
 
 function loadSong(song, seekTo, shouldPlay) {
   if (!playerReady) return;
+  
+  // If FORCE_FALLBACK is enabled, always use direct stream
+  if (FORCE_FALLBACK) {
+    activateFallback(song);
+    return;
+  }
+  
   stopFallback();
-  lastVideoId = song.id;
+  lastVideoId = song.id;  // Always update this for proper skip detection
   const vol = applyVolumeCurve(parseInt(document.getElementById("volume").value));
   if (shouldPlay && App.tosAccepted) {
     player.loadVideoById({ videoId: song.id, startSeconds: seekTo });
@@ -140,6 +185,50 @@ function syncPlayback(livePos) {
   }
 }
 
+// Load a new song in fallback mode
+function loadFallbackSong(song, seekTo, shouldPlay) {
+  if (!song) return;
+  fallbackMode = true;
+  fallbackActivating = true;
+  const streamPath = window.location.pathname.startsWith("/hazeplaya") ? "/hazeplaya/stream/" : "/stream/";
+  fetch(streamPath + song.id)
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        fallbackActivating = false;
+        App.socket.emit("remove_song", { index: App.currentIndex, reason: "fallback_stream_error" });
+        return;
+      }
+      fallbackActivating = false;
+      lastVideoId = song.id;
+      audioEl.src = data.url;
+      audioEl.volume = applyVolumeCurve(parseInt(document.getElementById("volume").value)) / 100;
+      audioEl.addEventListener("loadedmetadata", () => {
+        audioEl.currentTime = seekTo;
+        if (shouldPlay && App.tosAccepted) {
+          audioEl.play();
+        }
+      }, { once: true });
+      audioEl.onplay = () => {
+        document.getElementById("join-overlay").style.display = "none";
+        document.getElementById("btn-play").textContent = "\u23F8";
+        startProgress();
+      };
+      audioEl.onended = () => {
+        fallbackMode = false;
+        App.socket.emit("remove_song", { index: App.currentIndex, reason: "fallback_ended" });
+      };
+    })
+    .catch(() => {
+      fallbackActivating = false;
+      App.socket.emit("remove_song", { index: App.currentIndex, reason: "fallback_fetch_error" });
+    });
+}
+
+// Expose for app.js
+window.loadFallbackSong = loadFallbackSong;
+window.syncPlayback = syncPlayback;
+
 function startProgress() {
   stopProgress();
   progressInterval = setInterval(updateProgress, 500);
@@ -168,5 +257,5 @@ function resetNowPlaying() {
   lastVideoId = null;
   stopProgress();
   stopFallback();
-  if (playerReady) player.stopVideo();
+  if (playerReady && player) player.stopVideo();
 }
