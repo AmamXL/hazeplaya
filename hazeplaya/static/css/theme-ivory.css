@@ -5,16 +5,16 @@
   --theme-accent-dim: rgba(255, 240, 208, 0.15);
   --theme-accent-glow: rgba(255, 240, 208, 0.5);
   --theme-accent-secondary: #C0B080;
-  --theme-bg: #242018;
-  --theme-bg-secondary: #2d2820;
-  --theme-bg-tertiary: #353028;
-  --theme-bg-hover: #3d3528;
-  --theme-border: #4a4538;
-  --theme-border-light: #403a30;
-  --theme-text: #f5f0e8;
-  --theme-text-muted: #c0b8a8;
-  --theme-text-dim: #8a8070;
-  --theme-number: #4a4538;
+  --theme-bg: #282014;
+  --theme-bg-secondary: #382B1B;
+  --theme-bg-tertiary: #503823;
+  --theme-bg-hover: #60452A;
+  --theme-border: #655535;
+  --theme-border-light: #55452A;
+  --theme-text: #FEF9E9;
+  --theme-text-muted: #D8C8A8;
+  --theme-text-dim: #988868;
+  --theme-number: #55452A;
   --theme-number-active: #FFF0D0;
   --font-mono: 'Courier New', monospace;
 }

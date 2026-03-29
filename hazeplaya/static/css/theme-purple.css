@@ -1,0 +1,19 @@
+/* HAZEPLAYA - Purple Theme - Light Variant */
+
+:root {
+  --theme-accent: #C084FC;
+  --theme-accent-dim: rgba(192, 132, 252, 0.15);
+  --theme-accent-glow: rgba(192, 132, 252, 0.5);
+  --theme-bg: #1A1428;
+  --theme-bg-secondary: #221B38;
+  --theme-bg-tertiary: #2E2350;
+  --theme-bg-hover: #3A2A60;
+  --theme-border: #4A3565;
+  --theme-border-light: #3A2A55;
+  --theme-text: #EDE9FE;
+  --theme-text-muted: #B8A8D8;
+  --theme-text-dim: #786898;
+  --theme-number: #3A2A55;
+  --theme-number-active: #C084FC;
+  --font-mono: 'Courier New', monospace;
+}

@@ -217,13 +217,11 @@ function setTheme(theme) {
   document.querySelectorAll('link[data-theme-css]').forEach(el => el.remove());
   
   // Add new theme stylesheet
-  if (theme !== 'burn') {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `/static/css/theme-${theme}.css`;
-    link.dataset.themeCss = '';
-    document.head.appendChild(link);
-  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `/static/css/theme-${theme}.css`;
+  link.dataset.themeCss = '';
+  document.head.appendChild(link);
   
   // Update background text based on theme
   const bgText = document.getElementById('now-playing-bg');
