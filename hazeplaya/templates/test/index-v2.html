@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HAZEPLAYA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/test/index-v2.css') }}">
+</head>
+<body>
+
+<div id="yt-player"></div>
+<div class="top-accent"></div>
+
+<!-- Playlist Modal -->
+<div class="modal-overlay" id="playlist-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title" id="playlist-modal-title"></div>
+      <button class="modal-close" onclick="document.getElementById('playlist-modal').style.display='none'">&#10005;</button>
+    </div>
+    <div id="playlist-modal-list"></div>
+  </div>
+</div>
+
+<!-- App Layout -->
+<div class="app-layout">
+
+  <!-- LEFT: Queue -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">HAZE<span>PLAYA</span></div>
+      <div class="unlock-section">
+        <div class="unlock-row" id="unlock-row">
+          <input class="unlock-input" id="unlock-input" type="password" placeholder="Admin" maxlength="10">
+        </div>
+        <span class="unlock-status" id="unlock-status">LOCKED</span>
+      </div>
+    </div>
+    <div class="queue-section-header">
+      <span class="queue-section-title">Queue</span>
+      <div class="autoplay-row" id="autoplay-row">
+        <span class="autoplay-label">AUTO</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="autoplay-toggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="queue-list" id="queue-list">
+      <div class="queue-empty">Queue is empty</div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="main-content">
+    <!-- Character background art -->
+    <div class="center-bg"></div>
+
+    <!-- Search at top, centered, half width -->
+    <div class="top-search">
+      <div class="top-search-inner">
+        <input type="text" class="search-input" id="search-input" placeholder="Search for a song, artist or album...">
+        <button class="search-btn" id="search-btn">&#8981;</button>
+      </div>
+    </div>
+    <div class="search-results-wrap">
+      <div class="search-results" id="search-results"></div>
+    </div>
+
+    <!-- Character art shows through here -->
+    <div class="center-spacer"></div>
+  </div>
+
+  <!-- RIGHT: Playlists -->
+  <div class="right-panel">
+    <div class="right-panel-header">
+      <div class="right-panel-title">Play<span>lists</span></div>
+    </div>
+    <div class="playlists-row" id="playlists-row"></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM PLAYER BAR -->
+<div class="player-bar">
+  <!-- Thin progress strip at top of bar -->
+  <div class="progress-fill-line" id="progress-fill-line"></div>
+  <!-- Scrub click area -->
+  <div id="progress-wrap"><div id="progress-fill"></div></div>
+
+  <!-- Thumbnail -->
+  <div class="bar-thumb-wrap">
+    <img id="now-thumb" src="" alt="">
+    <span class="now-thumb-placeholder" id="now-placeholder">&#9835;</span>
+  </div>
+
+  <!-- Song info -->
+  <div class="bar-info">
+    <div class="now-label">Now Playing</div>
+    <div id="now-title">&mdash;</div>
+    <div id="now-channel">Nothing in queue</div>
+  </div>
+
+  <!-- Transport controls -->
+  <div class="controls-row">
+    <button class="ctrl-btn" id="btn-prev" title="Previous">&#9198;</button>
+    <button class="ctrl-btn play-btn" id="btn-play" title="Play / Pause">&#9654;</button>
+    <button class="ctrl-btn" id="btn-next" title="Next">&#9197;</button>
+  </div>
+
+  <!-- Time -->
+  <div class="time-row">
+    <span id="time-current">0:00</span>
+    <span id="time-total">0:00</span>
+  </div>
+
+  <!-- Volume -->
+  <div class="volume-group">
+    <span class="vol-icon">&#128264;</span>
+    <input type="range" id="volume" min="0" max="100" value="10">
+    <span class="vol-pct" id="vol-pct">10%</span>
+  </div>
+</div>
+
+<!-- Popup -->
+<div class="popup" id="popup">Admin access required</div>
+
+<!-- Quota -->
+<div class="quota-widget">
+  <span id="quota-used">&mdash;</span> / <span id="quota-total">&mdash;</span> searches
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/playlists.js') }}"></script>
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script src="{{ url_for('static', filename='js/queue.js') }}"></script>
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<script>
+  /* Mirror #progress-fill width changes → visual progress line at top of bar */
+  const fill = document.getElementById('progress-fill');
+  const fillLine = document.getElementById('progress-fill-line');
+  if (fill && fillLine) {
+    new MutationObserver(() => {
+      fillLine.style.width = fill.style.width || '0%';
+    }).observe(fill, { attributes: true, attributeFilter: ['style'] });
+  }
+</script>
+
+</body>
+</html>

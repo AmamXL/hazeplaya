@@ -32,15 +32,15 @@ window.onYouTubeIframeAPIReady = function() {
 
 function initPlayer() {
   playerReady = true;
-  
+
   // If FORCE_FALLBACK is enabled, skip IFrame and use direct stream
   if (FORCE_FALLBACK) {
-    if (App.currentIndex >= 0 && App.queue[App.currentIndex] && App.tosAccepted) {
+    if (App.currentIndex >= 0 && App.queue[App.currentIndex]) {
       activateFallback(App.queue[App.currentIndex]);
     }
     return;
   }
-  
+
   player = new YT.Player("yt-player", {
     width: 1,
     height: 1,
@@ -48,7 +48,7 @@ function initPlayer() {
     events: {
       onReady: () => {
         // Check if there's already a song that should be playing
-        if (App.currentIndex >= 0 && App.queue[App.currentIndex] && App.tosAccepted) {
+        if (App.currentIndex >= 0 && App.queue[App.currentIndex]) {
           const song = App.queue[App.currentIndex];
           lastVideoId = song.id;
           const seekTo = App.isPlaying
@@ -63,6 +63,9 @@ function initPlayer() {
             player.setVolume(applyVolumeCurve(parseInt(document.getElementById("volume").value)));
           }
         }
+        // Start progress updates
+        startProgress();
+        updateProgress();
       },
       onStateChange: onPlayerStateChange,
       onError: (e) => {
@@ -83,7 +86,6 @@ function onPlayerStateChange(e) {
   if (e.data === YT.PlayerState.PLAYING) {
     if (playbackCheckTimer) { clearTimeout(playbackCheckTimer); playbackCheckTimer = null; }
     if (autoplayCheckTimer) { clearTimeout(autoplayCheckTimer); autoplayCheckTimer = null; }
-    document.getElementById("join-overlay").style.display = "none";
     document.getElementById("btn-play").textContent = "\u23F8";
     startProgress();
   } else if (e.data === YT.PlayerState.PAUSED) {
@@ -121,8 +123,9 @@ async function activateFallback(song) {
     audioEl.addEventListener("loadedmetadata", () => { audioEl.currentTime = seekTo; }, { once: true });
     audioEl.play();
     audioEl.onended = () => { fallbackMode = false; App.socket.emit("remove_song", { index: App.currentIndex, reason: "fallback_ended" }); };
-    audioEl.onplay = () => { document.getElementById("join-overlay").style.display = "none"; document.getElementById("btn-play").textContent = "\u23F8"; startProgress(); };
+    audioEl.onplay = () => { document.getElementById("btn-play").textContent = "\u23F8"; startProgress(); };
     audioEl.onpause = () => { document.getElementById("btn-play").textContent = "\u25B6"; stopProgress(); };
+    audioEl.onloadedmetadata = () => { startProgress(); updateProgress(); };
   } catch {
     fallbackActivating = false;
     App.socket.emit("remove_song", { index: App.currentIndex, reason: "fallback_fetch_error" });
@@ -136,17 +139,17 @@ function stopFallback() {
 
 function loadSong(song, seekTo, shouldPlay) {
   if (!playerReady) return;
-  
+
   // If FORCE_FALLBACK is enabled, always use direct stream
   if (FORCE_FALLBACK) {
     activateFallback(song);
     return;
   }
-  
+
   stopFallback();
   lastVideoId = song.id;  // Always update this for proper skip detection
   const vol = applyVolumeCurve(parseInt(document.getElementById("volume").value));
-  if (shouldPlay && App.tosAccepted) {
+  if (shouldPlay) {
     player.loadVideoById({ videoId: song.id, startSeconds: seekTo });
     player.setVolume(vol);
     player.playVideo();
@@ -171,13 +174,13 @@ function syncPlayback(livePos) {
   if (fallbackMode) {
     const drift = Math.abs((audioEl.currentTime || 0) - livePos);
     if (drift > 2) audioEl.currentTime = livePos;
-    if (App.isPlaying && audioEl.paused && App.tosAccepted) audioEl.play();
+    if (App.isPlaying && audioEl.paused) audioEl.play();
     else if (!App.isPlaying && !audioEl.paused) audioEl.pause();
   } else {
     const currentPos = player.getCurrentTime ? player.getCurrentTime() : 0;
     const drift = Math.abs(currentPos - livePos);
     if (drift > 2) player.seekTo(livePos, true);
-    if (App.isPlaying && App.tosAccepted && player.getPlayerState() !== YT.PlayerState.PLAYING) {
+    if (App.isPlaying && player.getPlayerState() !== YT.PlayerState.PLAYING) {
       player.playVideo();
     } else if (!App.isPlaying && player.getPlayerState() === YT.PlayerState.PLAYING) {
       player.pauseVideo();
@@ -205,12 +208,13 @@ function loadFallbackSong(song, seekTo, shouldPlay) {
       audioEl.volume = applyVolumeCurve(parseInt(document.getElementById("volume").value)) / 100;
       audioEl.addEventListener("loadedmetadata", () => {
         audioEl.currentTime = seekTo;
-        if (shouldPlay && App.tosAccepted) {
+        startProgress();
+        updateProgress();
+        if (shouldPlay) {
           audioEl.play();
         }
       }, { once: true });
       audioEl.onplay = () => {
-        document.getElementById("join-overlay").style.display = "none";
         document.getElementById("btn-play").textContent = "\u23F8";
         startProgress();
       };
@@ -241,17 +245,18 @@ function stopProgress() {
 function updateProgress() {
   const current = fallbackMode ? (audioEl.currentTime || 0) : (playerReady ? player.getCurrentTime() || 0 : 0);
   const total = fallbackMode ? (audioEl.duration || 0) : (playerReady ? player.getDuration() || 0 : 0);
-  document.getElementById("progress-fill").style.width = total > 0 ? (current / total * 100) + "%" : "0%";
+  const pct = total > 0 ? (current / total * 100) + "%" : "0%";
+  document.getElementById("progress-line").style.width = pct;
   document.getElementById("time-current").textContent = fmtTime(current);
   document.getElementById("time-total").textContent = fmtTime(total);
 }
 
 function resetNowPlaying() {
-  document.getElementById("now-title").textContent = "\u2014";
-  document.getElementById("now-channel").textContent = "Nothing in queue";
-  document.getElementById("now-thumb").style.display = "none";
-  document.getElementById("now-placeholder").style.display = "";
-  document.getElementById("progress-fill").style.width = "0%";
+  document.getElementById("now-title").textContent = "—";
+  document.getElementById("now-artist").textContent = "Nothing in queue";
+  document.getElementById("player-title").textContent = "—";
+  document.getElementById("player-artist").textContent = "Nothing in queue";
+  document.getElementById("progress-line").style.width = "0%";
   document.getElementById("time-current").textContent = "0:00";
   document.getElementById("time-total").textContent = "0:00";
   lastVideoId = null;

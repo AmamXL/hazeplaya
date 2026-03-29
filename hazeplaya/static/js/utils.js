@@ -4,8 +4,10 @@ function decodeHtmlEntities(s) {
   return el.value;
 }
 
-function escHtml(s) {
-  return decodeHtmlEntities(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
 }
 
 function fmtTime(s) {

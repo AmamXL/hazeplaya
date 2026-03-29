@@ -3,41 +3,60 @@ const App = {
   currentIndex: -1,
   isPlaying: false,
   adminUnlocked: false,
-  tosAccepted: false,
   serverPosition: 0,
   serverPositionAt: 0,
   socket: null,
+  currentTheme: 'burn',
 };
 
 (function init() {
   const socketPath = window.location.pathname.startsWith("/hazeplaya") ? "/hazeplaya/socket.io" : "/socket.io";
   App.socket = io({ path: socketPath });
 
-  // ToS
-  const joinOverlay = document.getElementById("join-overlay");
-  joinOverlay.style.display = "flex";
+  // Load saved theme
+  const savedTheme = localStorage.getItem('hazeplaya-theme') || 'burn';
+  setTheme(savedTheme);
 
-  document.getElementById("tos-accept").addEventListener("click", () => {
-    App.tosAccepted = true;
-    joinOverlay.style.display = "none";
-    // Try to start playback if there's a song that should be playing
-    if (App.currentIndex >= 0 && App.queue[App.currentIndex] && App.isPlaying) {
-      const song = App.queue[App.currentIndex];
-      const liveSeek = Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000);
-      if (fallbackMode) { 
-        audioEl.currentTime = liveSeek; 
-        audioEl.play(); 
-      } else if (!playerReady) { 
-        // Player not ready yet, will be handled when it becomes ready
-      } else { 
-        player.seekTo(liveSeek, true); 
-        player.playVideo(); 
-      }
+  // Initialize visualizer bars
+  initVisualizer();
+
+  // Settings modal - open via logo click
+  const sidebarLogo = document.getElementById('sidebar-logo');
+  const settingsOverlay = document.getElementById('settings-overlay');
+  const settingsClose = document.getElementById('settings-close');
+  const themeOptions = document.querySelectorAll('.theme-option');
+
+  sidebarLogo.addEventListener('click', () => {
+    settingsOverlay.classList.add('visible');
+  });
+
+  settingsClose.addEventListener('click', () => {
+    settingsOverlay.classList.remove('visible');
+  });
+
+  settingsOverlay.addEventListener('click', (e) => {
+    if (e.target === settingsOverlay) {
+      settingsOverlay.classList.remove('visible');
     }
   });
 
-  document.getElementById("tos-decline").addEventListener("click", () => {
-    document.getElementById("tos-error").style.display = "block";
+  themeOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      const theme = option.dataset.theme;
+      setTheme(theme);
+      localStorage.setItem('hazeplaya-theme', theme);
+      
+      themeOptions.forEach(o => o.classList.remove('active'));
+      option.classList.add('active');
+    });
+  });
+
+  // Playlist modal close
+  document.getElementById('playlist-modal-close')?.addEventListener('click', closePlaylistModal);
+  document.getElementById('playlist-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'playlist-modal') {
+      closePlaylistModal();
+    }
   });
 
   // State sync
@@ -59,16 +78,27 @@ const App = {
     const newVideoId = song ? song.id : null;
 
     if (song) {
-      document.getElementById("now-title").textContent = decodeHtmlEntities(song.title);
-      document.getElementById("now-channel").textContent = decodeHtmlEntities(song.channel);
-      const thumb = document.getElementById("now-thumb");
-      thumb.src = song.thumbnail;
-      thumb.style.display = "block";
-      document.getElementById("now-placeholder").style.display = "none";
+      const title = decodeHtmlEntities(song.title);
+      const artist = decodeHtmlEntities(song.channel);
+      
+      // Update both center display and player bar
+      document.getElementById("now-title").textContent = title;
+      document.getElementById("now-artist").textContent = artist;
+      document.getElementById("player-title").textContent = title;
+      document.getElementById("player-artist").textContent = artist;
+      
+      // Show thumbnail
+      const thumb = document.getElementById("now-playing-thumb");
+      if (song.thumbnail) {
+        thumb.src = song.thumbnail;
+        thumb.classList.add('visible');
+      } else {
+        thumb.classList.remove('visible');
+      }
     }
 
-    // Always try to load/sync the current song if we have one and ToS accepted
-    if (newVideoId && App.tosAccepted) {
+    // Always try to load/sync the current song if we have one
+    if (newVideoId) {
       const seekTo = App.isPlaying
         ? Math.max(0, App.serverPosition + (Date.now() - App.serverPositionAt) / 1000)
         : App.serverPosition;
@@ -123,6 +153,7 @@ const App = {
     else if (playerReady) player.setVolume(curvedVol);
   });
 
+  // Progress bar click to seek
   document.getElementById("progress-wrap").addEventListener("click", (e) => {
     if (!App.adminUnlocked) { showPopup(); return; }
     const rect = e.currentTarget.getBoundingClientRect();
@@ -139,7 +170,7 @@ const App = {
     App.socket.emit("seek", { position });
   });
 
-  // Autoplay
+  // Autoplay toggle
   document.getElementById("autoplay-toggle").addEventListener("change", (e) => {
     App.socket.emit("set_autoplay", { enabled: e.target.checked });
   });
@@ -148,7 +179,7 @@ const App = {
     document.getElementById("autoplay-toggle").checked = data.enabled;
   });
 
-  // Quota updates via WebSocket (no polling needed)
+  // Quota updates via WebSocket
   App.socket.on("quota_update", (data) => {
     document.getElementById("quota-used").textContent = data.used;
     document.getElementById("quota-total").textContent = data.total;
@@ -156,7 +187,10 @@ const App = {
 
   // Escape closes modals
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") document.getElementById("playlist-modal").style.display = "none";
+    if (e.key === "Escape") {
+      closePlaylistModal();
+      document.getElementById("settings-overlay").classList.remove("visible");
+    }
   });
 
   // Init modules
@@ -175,3 +209,55 @@ const App = {
     }
   };
 })();
+
+function setTheme(theme) {
+  App.currentTheme = theme;
+  
+  // Remove existing theme stylesheets
+  document.querySelectorAll('link[data-theme-css]').forEach(el => el.remove());
+  
+  // Add new theme stylesheet
+  if (theme !== 'burn') {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `/static/css/theme-${theme}.css`;
+    link.dataset.themeCss = '';
+    document.head.appendChild(link);
+  }
+  
+  // Update background text based on theme
+  const bgText = document.getElementById('now-playing-bg');
+  if (bgText) {
+    bgText.textContent = theme === 'ivory' ? 'HAZE' : 'PLAY';
+  }
+}
+
+function initVisualizer() {
+  const viz = document.getElementById('visualizer');
+  if (!viz) return;
+  
+  viz.innerHTML = '';
+  for (let i = 0; i < 16; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'vis-bar';
+    bar.style.height = '34px';
+    bar.style.animationDuration = (0.4 + Math.random() * 0.65).toFixed(2) + 's';
+    bar.style.animationDelay = (i * 0.058).toFixed(2) + 's';
+    viz.appendChild(bar);
+  }
+}
+
+function resetNowPlaying() {
+  document.getElementById("now-title").textContent = "—";
+  document.getElementById("now-artist").textContent = "Nothing in queue";
+  document.getElementById("player-title").textContent = "—";
+  document.getElementById("player-artist").textContent = "Nothing in queue";
+  document.getElementById("now-playing-thumb").classList.remove('visible');
+  document.getElementById("progress-line").style.width = "0%";
+  document.getElementById("time-current").textContent = "0:00";
+  document.getElementById("time-total").textContent = "0:00";
+  lastVideoId = null;
+  stopProgress();
+  stopFallback();
+  if (playerReady && player) player.stopVideo();
+}

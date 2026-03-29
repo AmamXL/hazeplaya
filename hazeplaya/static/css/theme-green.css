@@ -1,0 +1,19 @@
+/* HAZEPLAYA - Green Theme (Lime) - Light Variant */
+
+:root {
+  --theme-accent: #D4FF33;
+  --theme-accent-dim: rgba(212, 255, 51, 0.15);
+  --theme-accent-glow: rgba(212, 255, 51, 0.5);
+  --theme-bg: #1a1f1a;
+  --theme-bg-secondary: #222922;
+  --theme-bg-tertiary: #2a322a;
+  --theme-bg-hover: #2d3a2d;
+  --theme-border: #3a453a;
+  --theme-border-light: #323d32;
+  --theme-text: #f0f5f0;
+  --theme-text-muted: #a0b0a0;
+  --theme-text-dim: #6a756a;
+  --theme-number: #3a453a;
+  --theme-number-active: #D4FF33;
+  --font-mono: 'Courier New', monospace;
+}

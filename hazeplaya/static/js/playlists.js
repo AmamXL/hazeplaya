@@ -1,6 +1,7 @@
 const PREMADE_PLAYLISTS = [
   {
     genre: "K-POP #1",
+    count: 17,
     songs: [
       { id: "lRETqod3SxY", title: "HANDS UP", channel: "MEOVV", thumbnail: "https://i.ytimg.com/vi/lRETqod3SxY/mqdefault.jpg" },
       { id: "XAULcrSh80E", title: "Gabriela", channel: "KATSEYE", thumbnail: "https://i.ytimg.com/vi/XAULcrSh80E/mqdefault.jpg" },
@@ -23,6 +24,7 @@ const PREMADE_PLAYLISTS = [
   },
   {
     genre: "K-POP #2",
+    count: 17,
     songs: [
       { id: "JDRyqUx1X8M", title: "Shut Down", channel: "BLACKPINK", thumbnail: "https://i.ytimg.com/vi/JDRyqUx1X8M/mqdefault.jpg" },
       { id: "vsgdqdbQuc8", title: "ANTIFRAGILE", channel: "Rubik Music", thumbnail: "https://i.ytimg.com/vi/vsgdqdbQuc8/mqdefault.jpg" },
@@ -45,6 +47,7 @@ const PREMADE_PLAYLISTS = [
   },
   {
     genre: "K-POP #3",
+    count: 17,
     songs: [
       { id: "gdZLi9oWNZg", title: "Dynamite", channel: "HYBE LABELS", thumbnail: "https://i.ytimg.com/vi/gdZLi9oWNZg/mqdefault.jpg" },
       { id: "oKBwWQI-IoI", title: "Perfect Night", channel: "HYBE LABELS", thumbnail: "https://i.ytimg.com/vi/oKBwWQI-IoI/mqdefault.jpg" },
@@ -65,32 +68,30 @@ const PREMADE_PLAYLISTS = [
       { id: "5q9EjSUovc4", title: "Internet Girl", channel: "KATSEYE", thumbnail: "https://i.ytimg.com/vi/5q9EjSUovc4/mqdefault.jpg" },
     ],
   },
-  { genre: "ROCK", songs: [] },
-  { genre: "OTHER", songs: [] },
 ];
 
 function renderPlaylists(socket) {
-  const row = document.getElementById("playlists-row");
-  PREMADE_PLAYLISTS.forEach((pl) => {
-    if (pl.songs.length === 0) return;
+  const list = document.getElementById("playlists-list");
+  if (!list) return;
+
+  PREMADE_PLAYLISTS.forEach((pl, index) => {
+    const item = document.createElement("div");
+    item.className = "theme-playlist-item";
+    
+    // Get first 4 thumbnails for grid
     const thumbs = pl.songs.slice(0, 4);
-    const card = document.createElement("div");
-    card.className = "playlist-card";
-    card.innerHTML = `
-      <div class="playlist-grid">
-        ${thumbs.map((s) => `<img src="${s.thumbnail}" alt="">`).join("")}
+    
+    item.innerHTML = `
+      <div class="playlist-thumb-grid">
+        ${thumbs.map(t => `<img src="${t.thumbnail}" alt="">`).join('')}
       </div>
-      <div class="playlist-meta">
-        <span class="playlist-genre">${pl.genre}</span>
-        <span class="playlist-count">${pl.songs.length} songs</span>
+      <div class="theme-playlist-info">
+        <div class="theme-playlist-name">${pl.genre}</div>
+        <div class="theme-playlist-count">${pl.count} tracks</div>
       </div>
-      <button class="playlist-add-btn">Add All</button>`;
-    card.querySelector(".playlist-add-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      pl.songs.forEach((s) => socket.emit("add_song", s));
-    });
-    card.querySelector(".playlist-grid").addEventListener("click", () => openPlaylistModal(pl, socket));
-    row.appendChild(card);
+    `;
+    item.addEventListener("click", () => openPlaylistModal(pl, socket));
+    list.appendChild(item);
   });
 }
 
@@ -98,20 +99,43 @@ function openPlaylistModal(pl, socket) {
   const overlay = document.getElementById("playlist-modal");
   const title = document.getElementById("playlist-modal-title");
   const list = document.getElementById("playlist-modal-list");
+  
   title.textContent = pl.genre;
   list.innerHTML = "";
+  
   pl.songs.forEach((s) => {
     const item = document.createElement("div");
     item.className = "pl-modal-item";
     item.innerHTML = `
-      <img src="${s.thumbnail}" alt="">
+      <img class="pl-modal-thumb" src="${s.thumbnail}" alt="">
       <div class="pl-modal-info">
-        <div class="pl-modal-title">${s.title}</div>
-        <div class="pl-modal-channel">${s.channel}</div>
+        <div class="pl-modal-title">${escapeHtml(s.title)}</div>
+        <div class="pl-modal-channel">${escapeHtml(s.channel)}</div>
       </div>
-      <button class="pl-modal-add">+</button>`;
-    item.querySelector(".pl-modal-add").addEventListener("click", () => socket.emit("add_song", s));
+      <button class="pl-modal-add">+</button>
+    `;
+    item.querySelector(".pl-modal-add").addEventListener("click", (e) => {
+      e.stopPropagation();
+      socket.emit("add_song", s);
+    });
+    item.addEventListener("click", () => {
+      socket.emit("add_song", s);
+    });
     list.appendChild(item);
   });
-  overlay.style.display = "flex";
+  
+  overlay.classList.add("visible");
+}
+
+function closePlaylistModal() {
+  const overlay = document.getElementById("playlist-modal");
+  if (overlay) {
+    overlay.classList.remove("visible");
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }

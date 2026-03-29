@@ -17,6 +17,12 @@ def index():
     return render_template("index.html")
 
 
+@bp.route("/test/<name>")
+def test_page(name):
+    """Serve test index files from templates/test/ folder."""
+    return render_template(f"test/{name}")
+
+
 @bp.route("/stream/<video_id>")
 def stream(video_id):
     start = time.time()
